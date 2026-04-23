@@ -8,7 +8,6 @@
 - Purpose of swarm leader is to lead drones to center of field and form a figure of drones (figure is chosen based on swarm size)
 - If there are no other drones witin communication radius of a drone, it considers itself as a swarm leader (swarm of single drone)
 - Messages from leader and other drones propogate from neighbors to neighbors eventually covering whole swarm (Gossip algorithm)
--  Лидер роя периодически посылает сигналы о том, что он жив. Лидер может умереть или дроны в рое могут счесть его мертвым, если давно не получали от него сигнал. Тогда запускается процесс нового лидера
 
 ## Global tasks
 
