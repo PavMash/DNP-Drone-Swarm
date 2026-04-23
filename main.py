@@ -13,9 +13,7 @@ def main():
     # 1. Start environment
     env = Environment.start(radius=COMM_RADIUS)
 
-    # 2. Create drones
-    drones = []
-
+    # 2. Create and register drones
     for i in range(NUM_DRONES):
         position = (
             random.uniform(0, FIELD_SIZE),
@@ -28,9 +26,6 @@ def main():
             env_ref=env
         )
 
-        drones.append(drone)
-
-        # Register drone in environment
         env.tell({
             "type": MessageType.REGISTER,
             "drone": drone,
@@ -39,7 +34,6 @@ def main():
 
     # 3. Start simulation
     print("Starting simulation...")
-
     env.tell({"type": MessageType.START})
 
 

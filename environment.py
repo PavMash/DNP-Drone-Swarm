@@ -50,6 +50,7 @@ class Environment(pykka.ThreadingActor):
         print(f"[ENV CRASH] {exception_value}")
 
 
+    # --- Time simulation logic ---
     def schedule_next_tick(self):
         if not self.running:
             return
@@ -76,6 +77,7 @@ class Environment(pykka.ThreadingActor):
         self.schedule_next_tick()
 
 
+    # --- Message routing logic ---
     def route_local(self, sender_ref, payload):
         sender_pos = self.drones[sender_ref]["position"]
 

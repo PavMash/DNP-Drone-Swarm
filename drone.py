@@ -22,7 +22,7 @@ class Drone(pykka.ThreadingActor):
         # Leader state
         self.leader_id = drone_id
         self.leader_version = 0
-        self.leader_timestamp = 0  # in ticks
+        self.leader_tick = 0
 
         # Timing config
         self.heartbeat_interval = heartbeat_interval
@@ -42,6 +42,8 @@ class Drone(pykka.ThreadingActor):
     def on_failure(self, exception_type, exception_value, traceback):
         print(f"[ENV CRASH] {exception_value}")
 
+
+    # --- Tick handling logic ---
     def on_tick(self, tick):
         self.current_tick = tick
 
@@ -60,11 +62,17 @@ class Drone(pykka.ThreadingActor):
 
         # 4. Leader sends heartbeat
         if self.is_leader() and self.current_tick % self.heartbeat_interval == 0:
-            self.leader_timestamp = self.current_tick
+            self.leader_tick = self.current_tick
             self.send_leader_message()
 
 
-    # Movement (placeholder)
+    # --- Message handling logic ---
+    def handle_message(self, msg):
+        if msg["type"] == MessageType.LEADER:
+            self.handle_leader_message(msg)
+
+
+    # --- Movement logic (placeholder) ---
     def move(self):
         dx = random.uniform(-1, 1)
         dy = random.uniform(-1, 1)
@@ -75,46 +83,46 @@ class Drone(pykka.ThreadingActor):
         )
 
 
+    # --- Leader election logic ---
     def is_leader(self):
         return self.leader_id == self.id
     
 
     def check_leader_timeout(self):
-        if self.current_tick - self.leader_timestamp > self.timeout:
+        if self.current_tick - self.leader_tick > self.timeout:
             # Become new leader
             self.leader_version += 1
             self.leader_id = self.id
-            self.leader_timestamp = self.current_tick
+            self.leader_tick = self.current_tick
 
             # Immediately announce
             self.send_leader_message()
-
-    
-    def handle_message(self, msg):
-        if msg["type"] == MessageType.LEADER:
-            self.handle_leader_message(msg)
 
     
     def handle_leader_message(self, msg):
         incoming = (
             msg["version"],
             msg["leader_id"],
-            msg["timestamp"]
+            msg["tick"]
         )
 
         current = (
             self.leader_version,
             self.leader_id,
-            self.leader_timestamp
+            self.leader_tick
         )
 
         # Accept only strictly better info
+        # - If version is higher -> accept new leader, propagate further
+        # - If version is the same but leader_id is higher -> accept new leader, propagate further
+        # - If version and leader_id are the same, but tick is more recent -> 
+        #   fresh heartbeat from leader, update state and propogate further
+        # - Otherwise -> no update and propogation needed
         if incoming > current:
             self.leader_version = msg["version"]
             self.leader_id = msg["leader_id"]
-            self.leader_timestamp = msg["timestamp"]
+            self.leader_tick = msg["tick"]
 
-            # Forward new info
             self.send_leader_message()
     
 
@@ -123,7 +131,7 @@ class Drone(pykka.ThreadingActor):
             "type": MessageType.LEADER,
             "leader_id": self.leader_id,
             "version": self.leader_version,
-            "timestamp": self.leader_timestamp
+            "tick": self.leader_tick
         }
 
 
