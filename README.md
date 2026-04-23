@@ -38,6 +38,7 @@
 - Time simulation is handled by Environment. On START message received it schedules timer that sends TICK message to Environment after specifed tick_interval (in seconds). When TICK message is received by Environment, it increments its tick counter (single source of true time), sends TICK message to all drones and reschedules timer
 - On every TICK drone sends UPDATE_POSITION message to Environment
 - Environemt handles drone-to-drone communication with SEND_LOCAL and DELIVER wrapper messages. When drone wants to send message to another drone, it puts it to SEND_LOCAL message as payload and sends wrapped message to environment. When environment retransmitts message to receiver, it puts original payload to DELIVER message
+- Currently, drones process and answer to messages immediately after receiving. It means that drone can send several messages during a TICK. That might become a problem on large swarm scales so we may add to drone some kind of outcoming stack later
 
 ### Leader election logic
 
