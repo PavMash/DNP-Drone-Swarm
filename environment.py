@@ -1,6 +1,9 @@
 import pykka
 import threading
+
+from global_state import container
 from message_type import MessageType
+
 
 class Environment(pykka.ThreadingActor):
 
@@ -10,10 +13,10 @@ class Environment(pykka.ThreadingActor):
         self.tick_interval = tick_interval
 
         self.current_tick = 0
-        self.drones = {}  # actor_ref -> {position}
 
         self.running = False
         self.timer = None
+        self.last_print_tick = 0  # Track when we last printed positions
 
 
     def on_receive(self, message):
@@ -32,12 +35,18 @@ class Environment(pykka.ThreadingActor):
             self.handle_tick()
 
         elif msg_type == MessageType.REGISTER:
-            self.drones[message["drone"]] = {
-                "position": message["position"]
-            }
+            container.register_drone(
+                drone_ref=message["drone"],
+                drone_id=message["drone_id"],
+                position=message["position"],
+            )
 
         elif msg_type == MessageType.UPDATE_POSITION:
-            self.drones[message["drone"]]["position"] = message["position"]
+            container.update_position(
+                message["drone"],
+                message["position"],
+                message.get("is_leader", False),
+            )
 
         elif msg_type == MessageType.SEND_LOCAL:
             self.route_local(message["sender"], message["payload"])
@@ -65,32 +74,56 @@ class Environment(pykka.ThreadingActor):
 
     def handle_tick(self):
         self.current_tick += 1
+        container.set_current_tick(self.current_tick)
+        drone_items = container.get_items_snapshot()
         
         # 1. Notify all drones
-        for drone_ref in self.drones:
+        for drone_ref, _ in drone_items:
             drone_ref.tell({
                 "type": MessageType.TICK,
                 "tick": self.current_tick
             })
 
-        # 2. Schedule next tick
+        # 2. Print drone positions every 1 second (20 ticks at 0.05s interval)
+        if self.current_tick - self.last_print_tick >= 20:
+            self.last_print_tick = self.current_tick
+            self.print_positions()
+
+        # 3. Schedule next tick
         self.schedule_next_tick()
 
 
     # --- Message routing logic ---
     def route_local(self, sender_ref, payload):
-        sender_pos = self.drones[sender_ref]["position"]
+        sender_pos = container.get_position(sender_ref)
+        if sender_pos is None:
+            return
 
-        for ref, data in self.drones.items():
+        container.mark_signal_sent(sender_ref)
+
+        drone_items = container.get_items_snapshot()
+
+        for ref, data in drone_items:
             if ref == sender_ref:
                 continue
 
             if self.in_range(sender_pos, data["position"]):
+                container.mark_signal_received(ref)
                 ref.tell({
                     "type": MessageType.DELIVER,
                     "payload": payload
                 })
     
+
+
+    # --- Monitoring logic ---
+    def print_positions(self):
+        positions = container.get_positions_snapshot()
+        positions_str = "\n".join([
+            f"Drone {data['drone_id']}: {data['position']}"
+            for data in positions
+        ])
+        print(f"[t={self.current_tick*self.tick_interval:.2f}s]\n{positions_str}")
 
     def in_range(self, p1, p2):
         dx = p1[0] - p2[0]

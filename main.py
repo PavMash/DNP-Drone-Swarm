@@ -2,6 +2,8 @@ import random
 from environment import Environment
 from drone import Drone
 from message_type import MessageType
+from drawer import Drawer
+from global_state import container
 
 def main():
     # Simulation parameters
@@ -29,13 +31,27 @@ def main():
         env.tell({
             "type": MessageType.REGISTER,
             "drone": drone,
+            "drone_id": i,
             "position": position
         })
 
-    # 3. Start simulation
+    # 3. Start drawer visualization
+    drawer = Drawer(container, field_size=FIELD_SIZE, window_size=800)
+    drawer.start()
+    print("Drawer started...")
+
+    # 4. Start simulation
     print("Starting simulation...")
     env.tell({"type": MessageType.START})
 
+    # 5. Run pygame on main thread (blocking)
+    try:
+        drawer.run()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        drawer.stop()
+        env.tell({"type": MessageType.STOP})
 
 if __name__ == "__main__":
     main()
