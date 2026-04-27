@@ -19,6 +19,9 @@ class MessageType(Enum):
     SWARM_SIZE_REQUEST = auto()
     SWARM_SIZE_RESPONSE = auto()
 
+    # --- Movement commands ---
+    MOVE_COMMAND = auto()
+
 
 # --- Description of message types ---
 
