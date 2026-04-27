@@ -7,10 +7,12 @@ from message_type import MessageType
 
 class Environment(pykka.ThreadingActor):
 
-    def __init__(self, radius, tick_interval=0.05):
+    def __init__(self, radius, tick_interval=0.05, field_size=100, field_center=(50, 50)):
         super().__init__()
         self.radius = radius
         self.tick_interval = tick_interval
+        self.field_size = field_size
+        self.field_center = field_center
 
         self.current_tick = 0
 

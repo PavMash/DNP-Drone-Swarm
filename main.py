@@ -7,13 +7,14 @@ from global_state import container
 
 def main():
     # Simulation parameters
-    NUM_DRONES = 30
+    NUM_DRONES = 50
     FIELD_SIZE = 100
+    FIELD_CENTER = (FIELD_SIZE / 2, FIELD_SIZE / 2)
     COMM_RADIUS = 15
     TICK_INTERVAL = 0.05  # seconds (real-time pacing)
 
     # 1. Start environment
-    env = Environment.start(radius=COMM_RADIUS)
+    env = Environment.start(radius=COMM_RADIUS, field_size=FIELD_SIZE, field_center=FIELD_CENTER)
 
     # 2. Create and register drones
     for i in range(NUM_DRONES):
@@ -25,7 +26,8 @@ def main():
         drone = Drone.start(
             drone_id=i,
             position=position,
-            env_ref=env
+            env_ref=env,
+            field_center=FIELD_CENTER
         )
 
         env.tell({
