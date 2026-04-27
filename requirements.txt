@@ -5,6 +5,7 @@ docker==7.1.0
 idna==3.11
 packaging==26.1
 pycparser==2.23
+pykka==4.4.2
 requests==2.32.2
 rpds-py==0.30.0
 urllib3==2.2.2
