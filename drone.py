@@ -98,9 +98,9 @@ class Drone(pykka.ThreadingActor):
         #             "leader_ref": self.actor_ref
         #         }
         #     })
-            # Leader also sends MOVE_COMMAND to all
+            # Leader always sends MOVE_COMMAND to all (center)
         if self.is_leader():
-            center = (0, 0)  # For now, center is (0,0)
+            center = (0, 0)
             self.move_target = center
             self.env.tell({
                 "type": MessageType.SEND_LOCAL,
@@ -110,6 +110,25 @@ class Drone(pykka.ThreadingActor):
                     "target": center
                 }
             })
+
+            # Initiate SWARM_SIZE_REQUEST only when at target and previous is done
+            x, y = self.position
+            tx, ty = center
+            dist = ((x - tx) ** 2 + (y - ty) ** 2) ** 0.5
+            if dist < 0.1 and self.active_swarm_req_id is None:
+                print(f"Leader {self.id} initiating SWARM_SIZE_REQUEST at target")
+                req_id = f"{self.id}_{self.current_tick}"
+                self.active_swarm_req_id = req_id
+                self.active_swarm_set = set([self.id])
+                self.env.tell({
+                    "type": MessageType.SEND_LOCAL,
+                    "sender": self.actor_ref,
+                    "payload": {
+                        "type": MessageType.SWARM_SIZE_REQUEST,
+                        "req_id": req_id,
+                        "leader_ref": self.actor_ref
+                    }
+                })
         # Reset active request after timeout
         if self.active_swarm_req_id is not None:
             req_tick = int(self.active_swarm_req_id.split('_')[1])
@@ -183,7 +202,7 @@ class Drone(pykka.ThreadingActor):
             # Only accept move command if not leader and election is finished
             if not self.is_leader() and self.leader_id is not None:
                 self.move_target = msg.get("target", (0, 0))
-                print(f"[DRONE {self.id}] Received MOVE_COMMAND to {self.move_target}")
+                # print(f"[DRONE {self.id}] Received MOVE_COMMAND to {self.move_target}")
 
 
     # --- Movement logic (placeholder) ---
