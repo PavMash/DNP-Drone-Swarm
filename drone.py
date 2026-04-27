@@ -28,6 +28,13 @@ class Drone(pykka.ThreadingActor):
         self.heartbeat_interval = heartbeat_interval
         self.timeout = base_timeout + random.randint(0, timeout_jitter)
 
+        # Swarm size flood state
+        self.swarm_size_requests = set() # Protection for duplicated answers to requests
+        self.active_swarm_req_id = None
+        self.active_swarm_set = set()
+        self.swarm_size_responses = set()  # (req_id, drone_id) Protection for duplicated answers to responses
+
+
 
     def on_receive(self, message):
         msg_type = message.get("type")
@@ -38,7 +45,6 @@ class Drone(pykka.ThreadingActor):
         elif msg_type == MessageType.DELIVER:
             self.handle_message(message["payload"])
 
-    
     def on_failure(self, exception_type, exception_value, traceback):
         print(f"[ENV CRASH] {exception_value}")
 
@@ -46,9 +52,9 @@ class Drone(pykka.ThreadingActor):
     # --- Tick handling logic ---
     def on_tick(self, tick):
         self.current_tick = tick
-
+        # print(f"[DRONE {self.id}] thinks leader is {self.leader_id}")
         # 1. Move
-        self.move()
+        # self.move()
 
         # 2. Send position update
         self.env.tell({
@@ -57,6 +63,33 @@ class Drone(pykka.ThreadingActor):
             "position": self.position,
             "is_leader": self.is_leader(),
         })
+
+
+        # Leader initiates new SWARM_SIZE_REQUEST only if the previous is done
+        if self.is_leader() and self.current_tick % 60 == 0:
+            if self.active_swarm_req_id is not None:
+                return
+            print(f"Leader {self.id} initiating SWARM_SIZE_REQUEST")
+            req_id = f"{self.id}_{self.current_tick}"
+            self.active_swarm_req_id = req_id
+            self.active_swarm_set = set([self.id])
+            self.env.tell({
+                "type": MessageType.SEND_LOCAL,
+                "sender": self.actor_ref,
+                "payload": {
+                    "type": MessageType.SWARM_SIZE_REQUEST,
+                    "req_id": req_id,
+                    "leader_ref": self.actor_ref
+                }
+            })
+        # Reset active request after timeout
+        if self.active_swarm_req_id is not None:
+            req_tick = int(self.active_swarm_req_id.split('_')[1])
+            if self.current_tick - req_tick >= 80:
+                self.active_swarm_req_id = None
+                self.active_swarm_set = set()
+                self.swarm_size_responses = set()
+                self.swarm_size_requests = set()
 
         # 3. Check leader timeout
         self.check_leader_timeout()
@@ -69,8 +102,50 @@ class Drone(pykka.ThreadingActor):
 
     # --- Message handling logic ---
     def handle_message(self, msg):
-        if msg["type"] == MessageType.LEADER:
+        msg_type = msg["type"]
+        if msg_type == MessageType.LEADER:
             self.handle_leader_message(msg)
+
+        elif msg_type == MessageType.SWARM_SIZE_REQUEST:
+            req_id = msg.get("req_id")
+            if self.is_leader():
+                return
+            if req_id not in self.swarm_size_requests:
+                self.swarm_size_requests.add(req_id)
+                response = {
+                    "type": MessageType.SWARM_SIZE_RESPONSE,
+                    "drone_id": self.id,
+                    "req_id": req_id
+                }
+                self.env.tell({
+                    "type": MessageType.SEND_LOCAL,
+                    "sender": self.actor_ref,
+                    "payload": response
+                })
+                self.env.tell({
+                    "type": MessageType.SEND_LOCAL,
+                    "sender": self.actor_ref,
+                    "payload": msg
+                })
+
+        elif msg_type == MessageType.SWARM_SIZE_RESPONSE:
+            req_id = msg.get("req_id")
+            drone_id = msg.get("drone_id")
+            key = (req_id, drone_id)
+            if key in self.swarm_size_responses:
+                return
+            self.swarm_size_responses.add(key)
+            if self.is_leader():
+                if self.active_swarm_req_id != req_id:
+                    return
+                self.active_swarm_set.add(drone_id)
+                print(f"[LEADER {self.id}] Swarm size for req_id={req_id}: {len(self.active_swarm_set)}")
+            else:
+                self.env.tell({
+                    "type": MessageType.SEND_LOCAL,
+                    "sender": self.actor_ref,
+                    "payload": msg
+                })
 
 
     # --- Movement logic (placeholder) ---
@@ -95,6 +170,7 @@ class Drone(pykka.ThreadingActor):
             self.leader_version += 1
             self.leader_id = self.id
             self.leader_tick = self.current_tick
+            print(f"[LEADER ELECTION] Drone {self.id} starts new election:  new leader {self.leader_id} (version {self.leader_version})")
 
             # Immediately announce
             self.send_leader_message()
@@ -123,8 +199,8 @@ class Drone(pykka.ThreadingActor):
             self.leader_version = msg["version"]
             self.leader_id = msg["leader_id"]
             self.leader_tick = msg["tick"]
-
             self.send_leader_message()
+       
     
 
     def make_leader_message(self):

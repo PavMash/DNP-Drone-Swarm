@@ -15,6 +15,10 @@ class MessageType(Enum):
     # --- Swarm / Gossip layer ---
     LEADER = auto()
 
+    # --- Swarm size counting ---
+    SWARM_SIZE_REQUEST = auto()
+    SWARM_SIZE_RESPONSE = auto()
+
 
 # --- Description of message types ---
 
