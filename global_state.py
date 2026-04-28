@@ -19,15 +19,26 @@ class GlobalSyncedContainer:
                 "drone_id": drone_id,
                 "position": position,
                 "is_leader": True,
+                "leader_id": drone_id,
+                "leader_version": 0,
                 "tx_until_tick": 0,
                 "rx_until_tick": 0,
             }
 
-    def update_position(self, drone_ref: ActorRef[Drone], position: tuple[float, float], is_leader: bool):
+    def update_position(
+        self,
+        drone_ref: ActorRef[Drone],
+        position: tuple[float, float],
+        is_leader: bool,
+        leader_id: int | None = None,
+        leader_version: int = 0,
+    ):
         with self._lock:
             if drone_ref in self.drones:
                 self.drones[drone_ref]["position"] = position
                 self.drones[drone_ref]["is_leader"] = is_leader
+                self.drones[drone_ref]["leader_id"] = leader_id
+                self.drones[drone_ref]["leader_version"] = leader_version
 
     def set_current_tick(self, tick: int):
         with self._lock:
@@ -52,6 +63,8 @@ class GlobalSyncedContainer:
                         "drone_id": data["drone_id"],
                         "position": data["position"],
                         "is_leader": data["is_leader"],
+                        "leader_id": data["leader_id"],
+                        "leader_version": data["leader_version"],
                         "tx_until_tick": data["tx_until_tick"],
                         "rx_until_tick": data["rx_until_tick"],
                     },
@@ -66,6 +79,8 @@ class GlobalSyncedContainer:
                     "drone_id": data["drone_id"],
                     "position": data["position"],
                     "is_leader": data["is_leader"],
+                    "leader_id": data["leader_id"],
+                    "leader_version": data["leader_version"],
                     "is_sending": data["tx_until_tick"] >= self.current_tick,
                     "is_receiving": data["rx_until_tick"] >= self.current_tick,
                 }
@@ -77,6 +92,10 @@ class GlobalSyncedContainer:
             if drone_ref not in self.drones:
                 return None
             return self.drones[drone_ref]["position"]
+
+    def get_num_of_leaders(self) -> int:
+        with self._lock:
+            return len([i for i in self.drones.values() if i["is_leader"]])
 
 
 container = GlobalSyncedContainer()

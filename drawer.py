@@ -34,7 +34,24 @@ class Drawer:
         self.RED = (255, 0, 0)
         self.GREEN = (0, 180, 0)
         self.ORANGE = (255, 140, 0)
+        self.PURPLE = (148, 0, 211)
+        self.CYAN = (0, 170, 170)
+        self.YELLOW = (220, 200, 0)
+        self.PINK = (255, 105, 180)
+        self.BROWN = (139, 69, 19)
         self.GRAY = (200, 200, 200)
+        self.colour_array = [
+            self.RED,
+            self.BLUE,
+            self.GREEN,
+            self.ORANGE,
+            self.PURPLE,
+            self.CYAN,
+            self.YELLOW,
+            self.PINK,
+            self.BROWN,
+        ]
+        self.leader_color_map: dict[tuple[int, int], tuple[int, int, int]] = {}
 
     def start(self):
         """Start the drawer (pygame runs on main thread)."""
@@ -118,13 +135,42 @@ class Drawer:
         drones = self.state_container.get_positions_snapshot()
         return drones if drones else []
 
+    def _get_leader_key(self, drone_data: Dict[str, Any]) -> tuple[int, int] | None:
+        """Build a stable leader identifier from election version and leader id."""
+        leader_id = drone_data.get("leader_id")
+        leader_version = drone_data.get("leader_version")
+        if leader_id is None or leader_version is None:
+            return None
+        return leader_version, leader_id
+
+    def _get_color_for_leader(self, leader_key: tuple[int, int] | None) -> tuple[int, int, int]:
+        """Assign and reuse one color for each unique leader election result."""
+        if leader_key is None:
+            return self.GRAY
+        if leader_key not in self.leader_color_map:
+            color_index = len(self.leader_color_map) % len(self.colour_array)
+            self.leader_color_map[leader_key] = self.colour_array[color_index]
+        return self.leader_color_map[leader_key]
+
+    def _resolve_drone_style(self, drone_data: Dict[str, Any]) -> tuple[tuple[int, int, int], tuple[int, int, int], str]:
+        """Choose the drone fill color, label color, and caption for rendering."""
+        drone_id = drone_data.get("drone_id", 0)
+        is_leader = drone_data.get("is_leader", False)
+        leader_key = self._get_leader_key(drone_data)
+
+        if is_leader:
+            color = self._get_color_for_leader(leader_key)
+            return color, color, f"{drone_id} Leader"
+
+        if leader_key is not None and drone_data.get("leader_id") != drone_id:
+            color = self._get_color_for_leader(leader_key)
+            return color, self.BLACK, str(drone_id)
+
+        return self.GRAY, self.BLACK, str(drone_id)
+
     def _draw_drone(self, screen: pygame.Surface, drone_data: Dict[str, Any]):
         """Draw a single drone on the screen."""
         position = drone_data.get("position", (0, 0))
-        drone_id = drone_data.get("drone_id", 0)
-        is_leader = drone_data.get("is_leader", False)
-        is_sending = drone_data.get("is_sending", False)
-        is_receiving = drone_data.get("is_receiving", False)
         
         # Scale position from field coordinates to screen coordinates
         x = int((position[0] / self.field_size) * self.window_size)
@@ -134,13 +180,7 @@ class Drawer:
         x = max(0, min(x, self.window_size - 1))
         y = max(0, min(y, self.window_size - 1))
 
-        color = self.BLUE
-        if is_leader:
-            color = self.RED
-        if is_receiving:
-            color = self.GREEN
-        if is_sending:
-            color = self.ORANGE
+        color, font_color, caption = self._resolve_drone_style(drone_data)
         
         # Draw drone as a circle
         radius = 5
@@ -148,5 +188,5 @@ class Drawer:
         
         # Draw drone ID as text
         font = pygame.font.Font(None, 24)
-        text = font.render(str(drone_id), True, self.BLACK)
+        text = font.render(caption, True, font_color)
         screen.blit(text, (x + 8, y - 8))

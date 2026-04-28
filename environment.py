@@ -48,6 +48,8 @@ class Environment(pykka.ThreadingActor):
                 message["drone"],
                 message["position"],
                 message.get("is_leader", False),
+                message.get("leader_id"),
+                message.get("leader_version", 0),
             )
 
         elif msg_type == MessageType.SEND_LOCAL:
