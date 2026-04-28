@@ -48,7 +48,6 @@ class Drawer:
         self.BROWN = (139, 69, 19)
         self.GRAY = (200, 200, 200)
         self.colour_array = [
-            self.RED,
             self.BLUE,
             self.GREEN,
             self.ORANGE,
@@ -360,6 +359,9 @@ class Drawer:
         drone_id = drone_data.get("drone_id", 0)
         is_leader = drone_data.get("is_leader", False)
         leader_key = self._get_leader_key(drone_data)
+
+        if drone_data.get("dead", False):
+            return self.RED, self.WHITE, str(drone_id)
 
         if is_leader:
             color = self._get_color_for_leader(leader_key)

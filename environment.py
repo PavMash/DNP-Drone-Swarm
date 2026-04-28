@@ -1,5 +1,6 @@
 import pykka
 import threading
+import random
 
 from global_state import container
 from message_type import MessageType
@@ -82,8 +83,8 @@ class Environment(pykka.ThreadingActor):
         container.set_current_tick(self.current_tick)
         drone_items = container.get_items_snapshot()
 
-        # if random.uniform(0, 1) >= 0.98:
-        #     self.kill_first_leader()
+        if random.uniform(0, 1) >= 0.98:
+            self.kill_first_leader()
 
         # 1. Notify all drones
         for drone_ref, _ in drone_items:

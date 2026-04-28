@@ -217,6 +217,22 @@ class Drone(pykka.ThreadingActor):
                 self.move_target = msg.get("target", (0, 0))
         elif msg_type == MessageType.DEAD:
             self.dead = True
+            # Immediately send update to environment about death
+            self.env.tell(
+                {
+                    "type": MessageType.UPDATE_POSITION,
+                    "drone": self.actor_ref,
+                    "position": self.position,
+                    "is_leader": self.is_leader(),
+                    "leader_id": self.leader_id,
+                    "leader_version": self.leader_version,
+                    "leader_tick": self.leader_tick,
+                    "timeout": self.timeout,
+                    "leader_stable_ticks": self._leader_stable_ticks,
+                    "leader_stable_required": self._leader_stable_required,
+                    "dead": True,
+                }
+            )
 
     # --- Movement logic (placeholder) ---
     def move(self):
