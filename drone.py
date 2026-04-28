@@ -33,7 +33,7 @@ class Drone(pykka.ThreadingActor):
         self.current_tick = 0
 
         # Leader state
-        self._leader_id = drone_id
+        self.leader_id = drone_id
         self.leader_version = 0
         self.leader_tick = 0
 
@@ -52,7 +52,7 @@ class Drone(pykka.ThreadingActor):
         )  # (req_id, drone_id) Protection for duplicated answers to responses
 
         # Leader election stability
-        self._last_leader_id = self._leader_id
+        self._last_leader_id = self.leader_id
         self._last_leader_version = self.leader_version
         self._leader_stable_ticks = 0
         self._leader_stable_required = (
@@ -60,29 +60,8 @@ class Drone(pykka.ThreadingActor):
         )
 
         # dead
-        self._dead = False
+        self.dead = False
 
-    @property
-    def dead(self):
-        return self._dead
-
-    @dead.setter
-    def dead(self, value):
-        self._dead = value
-        from global_state import container
-
-        container.mark_dead_drone(self.actor_ref)
-
-    @property
-    def leader_id(self):
-        return self._leader_id
-
-    @leader_id.setter
-    def leader_id(self, value):
-        self._leader_id = value
-        from global_state import container
-
-        container.mark_drone_leader(self.actor_ref, self._leader_id)
 
     def on_receive(self, message):
         if self.dead:
@@ -124,6 +103,13 @@ class Drone(pykka.ThreadingActor):
                 "drone": self.actor_ref,
                 "position": self.position,
                 "is_leader": self.is_leader(),
+                "leader_id": self.leader_id,
+                "leader_version": self.leader_version,
+                "leader_tick": self.leader_tick,
+                "timeout": self.timeout,
+                "leader_stable_ticks": self._leader_stable_ticks,
+                "leader_stable_required": self._leader_stable_required,
+                "dead": self.dead,
             }
         )
         # Leader always sends MOVE_COMMAND to all (center)
@@ -269,8 +255,7 @@ class Drone(pykka.ThreadingActor):
             self.leader_id = self.id
             self.leader_tick = self.current_tick
             print(
-                f"[LEADER ELECTION] Drone {self.id} starts new election:  "
-                f"new leader {self.leader_id} (version {self.leader_version})"
+                f"[LEADER ELECTION] Drone {self.id} starts new election:  new leader {self.leader_id} (version {self.leader_version})"
             )
 
             # Immediately announce

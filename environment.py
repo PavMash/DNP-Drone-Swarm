@@ -7,7 +7,7 @@ from message_type import MessageType
 
 class Environment(pykka.ThreadingActor):
     def __init__(
-        self, radius, tick_interval=0.05, field_size=100, field_center=(50, 50)
+            self, radius, tick_interval=0.05, field_size=100, field_center=(50, 50)
     ):
         super().__init__()
         self.radius = radius
@@ -48,6 +48,13 @@ class Environment(pykka.ThreadingActor):
                 message["drone"],
                 message["position"],
                 message.get("is_leader", False),
+                message.get("leader_id"),
+                message.get("leader_version", 0),
+                message.get("leader_tick", 0),
+                message.get("timeout", 0),
+                message.get("leader_stable_ticks", 0),
+                message.get("leader_stable_required", 0),
+                message.get("dead", False),
             )
 
         elif msg_type == MessageType.SEND_LOCAL:
@@ -126,10 +133,7 @@ class Environment(pykka.ThreadingActor):
     def print_positions(self):
         positions = container.get_positions_snapshot()
         positions_str = "\n".join(
-            [
-                f"Drone {data['drone_id']}: {data['position']} {data['leader_id']}"
-                for data in positions
-            ]
+            [f"Drone {data['drone_id']}: {data['position']}" for data in positions]
         )
         print(f"[t={self.current_tick * self.tick_interval:.2f}s]\n{positions_str}")
 
