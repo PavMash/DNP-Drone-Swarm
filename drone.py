@@ -225,7 +225,7 @@ class Drone(pykka.ThreadingActor):
                     }
                 )
 
-        elif msg_type == MessageType.MOVE_COMMAND:
+        elif msg_type == MessageType.MOVE_COMMAND: # is the target payload used?
             # Only accept move command if not leader and election is finished
             if not self.is_leader() and self.leader_id is not None:
                 self.move_target = msg.get("target", (0, 0))
@@ -243,9 +243,9 @@ class Drone(pykka.ThreadingActor):
         r = random.uniform(0, self.TARGET_RADIUS)
         tx = center_x + r * math.cos(angle)
         ty = center_y + r * math.sin(angle)
-        self.move_target = (tx, ty)
+        # self.move_target = (tx, ty)
         x, y = self.position
-        tx, ty = self.move_target
+        # tx, ty = self.move_target
         dx = tx - x
         dy = ty - y
         dist = (dx**2 + dy**2) ** 0.5
