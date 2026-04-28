@@ -13,7 +13,9 @@ class GlobalSyncedContainer:
         self.drones = {}
         self.current_tick = 0
 
-    def register_drone(self, drone_ref: ActorRef[Drone], drone_id: int, position: tuple[float, float]):
+    def register_drone(
+        self, drone_ref: ActorRef[Drone], drone_id: int, position: tuple[float, float]
+    ):
         with self._lock:
             self.drones[drone_ref] = {
                 "drone_id": drone_id,
@@ -50,7 +52,9 @@ class GlobalSyncedContainer:
                 self.drones[drone_ref]["leader_tick"] = leader_tick
                 self.drones[drone_ref]["timeout"] = timeout
                 self.drones[drone_ref]["leader_stable_ticks"] = leader_stable_ticks
-                self.drones[drone_ref]["leader_stable_required"] = leader_stable_required
+                self.drones[drone_ref]["leader_stable_required"] = (
+                    leader_stable_required
+                )
 
     def set_current_tick(self, tick: int):
         with self._lock:
@@ -59,12 +63,16 @@ class GlobalSyncedContainer:
     def mark_signal_sent(self, drone_ref: ActorRef[Drone], pulse_ticks: int = 10):
         with self._lock:
             if drone_ref in self.drones:
-                self.drones[drone_ref]["tx_until_tick"] = self.current_tick + pulse_ticks
+                self.drones[drone_ref]["tx_until_tick"] = (
+                    self.current_tick + pulse_ticks
+                )
 
     def mark_signal_received(self, drone_ref: ActorRef[Drone], pulse_ticks: int = 10):
         with self._lock:
             if drone_ref in self.drones:
-                self.drones[drone_ref]["rx_until_tick"] = self.current_tick + pulse_ticks
+                self.drones[drone_ref]["rx_until_tick"] = (
+                    self.current_tick + pulse_ticks
+                )
 
     def get_items_snapshot(self) -> list[tuple[ActorRef[Drone], dict[str, Any]]]:
         with self._lock:

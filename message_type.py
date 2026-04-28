@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class MessageType(Enum):
     # --- Simulation control ---
     START = auto()

@@ -5,6 +5,7 @@ from message_type import MessageType
 from drawer import Drawer
 from global_state import container
 
+
 def main():
     # Simulation parameters
     NUM_DRONES = 50
@@ -14,28 +15,26 @@ def main():
     TICK_INTERVAL = 0.05  # seconds (real-time pacing)
 
     # 1. Start environment
-    env = Environment.start(radius=COMM_RADIUS, field_size=FIELD_SIZE, field_center=FIELD_CENTER)
+    env = Environment.start(
+        radius=COMM_RADIUS, field_size=FIELD_SIZE, field_center=FIELD_CENTER
+    )
 
     # 2. Create and register drones
     for i in range(NUM_DRONES):
-        position = (
-            random.uniform(0, FIELD_SIZE),
-            random.uniform(0, FIELD_SIZE)
-        )
+        position = (random.uniform(0, FIELD_SIZE), random.uniform(0, FIELD_SIZE))
 
         drone = Drone.start(
-            drone_id=i,
-            position=position,
-            env_ref=env,
-            field_center=FIELD_CENTER
+            drone_id=i, position=position, env_ref=env, field_center=FIELD_CENTER
         )
 
-        env.tell({
-            "type": MessageType.REGISTER,
-            "drone": drone,
-            "drone_id": i,
-            "position": position
-        })
+        env.tell(
+            {
+                "type": MessageType.REGISTER,
+                "drone": drone,
+                "drone_id": i,
+                "position": position,
+            }
+        )
 
     # 3. Start drawer visualization
     drawer = Drawer(container, field_size=FIELD_SIZE, window_size=800)
@@ -54,6 +53,7 @@ def main():
     finally:
         drawer.stop()
         env.tell({"type": MessageType.STOP})
+
 
 if __name__ == "__main__":
     main()
