@@ -139,6 +139,14 @@ class GlobalSyncedContainer:
                 return
             self.leader_messages_cnt += 1
 
+    def get_metrics_snapshot(self) -> dict[str, int | None]:
+        with self._lock:
+            return {
+                "current_tick": self.current_tick,
+                "leader_messages_cnt": self.leader_messages_cnt,
+                "leader_election_time_ticks": self.last_tick if self.last_tick else None,
+            }
+
     def check_end(self, field_center: tuple[float, float], target_radius: float):
         with self._lock:
             active_drones = [d for d in self.drones.values() if not d["dead"]]

@@ -188,12 +188,29 @@ class Drawer:
         else:
             current_tick = 0
         screen.blit(font_small.render(f"tick={current_tick}", True, self.BLACK), (x, y))
-        y += line_h + 8
+        y += line_h
+
+        metrics = self.state_container.get_metrics_snapshot()
+        messages_cnt = metrics.get("leader_messages_cnt", 0)
+        election_time = metrics.get("leader_election_time_ticks")
+        election_time_str = "-" if election_time is None else str(election_time)
+        screen.blit(
+            font_small.render(f"leader messages: {messages_cnt}", True, self.BLACK), (x, y)
+        )
+        y += line_h
+        screen.blit(
+            font_small.render(
+                f"leader election time (ticks): {election_time_str}", True, self.BLACK
+            ),
+            (x, y),
+        )
+        y += line_h + 12
 
         # Convert raw drone dicts into normalized table rows.
         rows: list[dict[str, str]] = []
         for drone_data in drones:
             drone_id = drone_data.get("drone_id", 0)
+            is_dead = drone_data.get("dead", False)
             leader_id = drone_data.get("leader_id")
             leader_tick = drone_data.get("leader_tick", 0)
             timeout = drone_data.get("timeout", 0)
@@ -204,24 +221,27 @@ class Drawer:
             since_hb = max(0, current_tick - int(leader_tick or 0))
             timeout_left = int(timeout or 0) - since_hb if timeout else 0
 
+            stable_value = (
+                "-"
+                if is_dead
+                else (f"{stable_ticks}/{stable_required}" if stable_required else "-")
+            )
             rows.append(
                 {
                     "id": str(drone_id),
-                    "leader": "-" if leader_id is None else str(int(leader_id)),
-                    "since": str(since_hb),
-                    "left": str(timeout_left),
-                    "stable": f"{stable_ticks}/{stable_required}"
-                    if stable_required
-                    else "-",
-                    "coord_x": f"{float(position[0]):.3f}",
-                    "coord_y": f"{float(position[1]):.3f}",
+                    "leader": "-" if leader_id is None else "Dead" if is_dead else str(int(leader_id)),
+                    "since": "-" if is_dead else str(since_hb),
+                    "left": "-" if is_dead else str(timeout_left),
+                    "stable": stable_value,
+                    "coord_x": f"{float(position[0]):.4f}",
+                    "coord_y": f"{float(position[1]):.4f}",
                 }
             )
 
         # Column identifiers and user-facing headers.
         columns = [
             ("id", "id"),
-            ("leader", "Leader id (V)"),
+            ("leader", "Leader id"),
             ("since", "ticks since HB"),
             ("left", "ticks before timeout"),
             ("stable", "stable ticks"),
@@ -295,7 +315,9 @@ class Drawer:
         y = data_start_y
         for drone_data, row in zip(visible_drones, visible_rows):
             color = self.BLACK
-            if drone_data.get("is_leader", False):
+            if drone_data.get("dead", False):
+                color = self.BLACK
+            elif drone_data.get("is_leader", False):
                 color = self._get_color_for_leader(self._get_leader_key(drone_data))
             else:
                 timeout = drone_data.get("timeout", 0)
@@ -361,7 +383,7 @@ class Drawer:
         leader_key = self._get_leader_key(drone_data)
 
         if drone_data.get("dead", False):
-            return self.RED, self.WHITE, str(drone_id)
+            return self.RED, self.BLACK, str(drone_id)
 
         if is_leader:
             color = self._get_color_for_leader(leader_key)
