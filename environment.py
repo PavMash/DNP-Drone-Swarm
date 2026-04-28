@@ -57,8 +57,11 @@ class Environment(pykka.ThreadingActor):
                 message.get("leader_stable_required", 0),
                 message.get("dead", False),
             )
+            container.check_end(self.field_center, 10.0)
 
         elif msg_type == MessageType.SEND_LOCAL:
+            if message["payload"]["type"] == MessageType.LEADER:
+                container.inc_leader_mgs_count()
             self.route_local(message["sender"], message["payload"])
 
     def on_failure(self, exception_type, exception_value, traceback):
