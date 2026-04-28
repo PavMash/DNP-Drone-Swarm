@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class MessageType(Enum):
     # --- Simulation control ---
     START = auto()
@@ -11,6 +12,7 @@ class MessageType(Enum):
     UPDATE_POSITION = auto()
     SEND_LOCAL = auto()
     DELIVER = auto()
+    DEAD = auto()
 
     # --- Swarm / Gossip layer ---
     LEADER = auto()
