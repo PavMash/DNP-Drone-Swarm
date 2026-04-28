@@ -21,6 +21,10 @@ class GlobalSyncedContainer:
                 "is_leader": True,
                 "leader_id": drone_id,
                 "leader_version": 0,
+                "leader_tick": 0,
+                "timeout": 0,
+                "leader_stable_ticks": 0,
+                "leader_stable_required": 0,
                 "tx_until_tick": 0,
                 "rx_until_tick": 0,
             }
@@ -32,6 +36,10 @@ class GlobalSyncedContainer:
         is_leader: bool,
         leader_id: int | None = None,
         leader_version: int = 0,
+        leader_tick: int = 0,
+        timeout: int = 0,
+        leader_stable_ticks: int = 0,
+        leader_stable_required: int = 0,
     ):
         with self._lock:
             if drone_ref in self.drones:
@@ -39,6 +47,10 @@ class GlobalSyncedContainer:
                 self.drones[drone_ref]["is_leader"] = is_leader
                 self.drones[drone_ref]["leader_id"] = leader_id
                 self.drones[drone_ref]["leader_version"] = leader_version
+                self.drones[drone_ref]["leader_tick"] = leader_tick
+                self.drones[drone_ref]["timeout"] = timeout
+                self.drones[drone_ref]["leader_stable_ticks"] = leader_stable_ticks
+                self.drones[drone_ref]["leader_stable_required"] = leader_stable_required
 
     def set_current_tick(self, tick: int):
         with self._lock:
@@ -65,6 +77,10 @@ class GlobalSyncedContainer:
                         "is_leader": data["is_leader"],
                         "leader_id": data["leader_id"],
                         "leader_version": data["leader_version"],
+                        "leader_tick": data["leader_tick"],
+                        "timeout": data["timeout"],
+                        "leader_stable_ticks": data["leader_stable_ticks"],
+                        "leader_stable_required": data["leader_stable_required"],
                         "tx_until_tick": data["tx_until_tick"],
                         "rx_until_tick": data["rx_until_tick"],
                     },
@@ -81,6 +97,11 @@ class GlobalSyncedContainer:
                     "is_leader": data["is_leader"],
                     "leader_id": data["leader_id"],
                     "leader_version": data["leader_version"],
+                    "leader_tick": data["leader_tick"],
+                    "timeout": data["timeout"],
+                    "leader_stable_ticks": data["leader_stable_ticks"],
+                    "leader_stable_required": data["leader_stable_required"],
+                    "current_tick": self.current_tick,
                     "is_sending": data["tx_until_tick"] >= self.current_tick,
                     "is_receiving": data["rx_until_tick"] >= self.current_tick,
                 }

@@ -85,6 +85,10 @@ class Drone(pykka.ThreadingActor):
             "is_leader": self.is_leader(),
             "leader_id": self.leader_id,
             "leader_version": self.leader_version,
+            "leader_tick": self.leader_tick,
+            "timeout": self.timeout,
+            "leader_stable_ticks": self._leader_stable_ticks,
+            "leader_stable_required": self._leader_stable_required,
         })
             # Leader always sends MOVE_COMMAND to all (center)
         if self.is_leader():

@@ -50,6 +50,10 @@ class Environment(pykka.ThreadingActor):
                 message.get("is_leader", False),
                 message.get("leader_id"),
                 message.get("leader_version", 0),
+                message.get("leader_tick", 0),
+                message.get("timeout", 0),
+                message.get("leader_stable_ticks", 0),
+                message.get("leader_stable_required", 0),
             )
 
         elif msg_type == MessageType.SEND_LOCAL:
