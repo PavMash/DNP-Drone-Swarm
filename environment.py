@@ -8,7 +8,7 @@ from message_type import MessageType
 
 class Environment(pykka.ThreadingActor):
     def __init__(
-            self, radius, tick_interval=0.05, field_size=100, field_center=(50, 50)
+        self, radius, tick_interval=0.05, field_size=100, field_center=(50, 50)
     ):
         super().__init__()
         self.radius = radius

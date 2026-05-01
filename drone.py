@@ -2,6 +2,7 @@ import pykka
 
 from message_type import MessageType
 import random
+import math
 
 
 class Drone(pykka.ThreadingActor):
@@ -41,16 +42,6 @@ class Drone(pykka.ThreadingActor):
         self.heartbeat_interval = heartbeat_interval
         self.timeout = base_timeout + random.randint(0, timeout_jitter)
 
-        # Swarm size flood state
-        self.swarm_size_requests = (
-            set()
-        )  # Protection for duplicated answers to requests
-        self.active_swarm_req_id = None
-        self.active_swarm_set = set()
-        self.swarm_size_responses = (
-            set()
-        )  # (req_id, drone_id) Protection for duplicated answers to responses
-
         # Leader election stability
         self._last_leader_id = self.leader_id
         self._last_leader_version = self.leader_version
@@ -61,7 +52,6 @@ class Drone(pykka.ThreadingActor):
 
         # dead
         self.dead = False
-
 
     def on_receive(self, message):
         if self.dead:
@@ -97,6 +87,34 @@ class Drone(pykka.ThreadingActor):
             self._last_leader_version = self.leader_version
 
         # 2. Send position update
+        self.update_position()
+        # Leader always sends MOVE_COMMAND to all (center)
+        if self.is_leader():
+            center = self.field_center
+            self.move_target = center
+
+            self.env.tell(
+                {
+                    "type": MessageType.SEND_LOCAL,
+                    "sender": self.actor_ref,
+                    "payload": {"type": MessageType.MOVE_COMMAND, "target": center},
+                }
+            )
+
+        # 3. Check leader timeout
+        self.check_leader_timeout()
+
+        # 4. Leader sends heartbeat
+        if self.is_leader() and self.current_tick % self.heartbeat_interval == 0:
+            self.leader_tick = self.current_tick
+            self.send_leader_message()
+
+    def leader_election_stable(self):
+        # Returns True if leader_id and leader_version have not changed for N ticks.
+
+        return self._leader_stable_ticks >= self._leader_stable_required
+
+    def update_position(self):
         self.env.tell(
             {
                 "type": MessageType.UPDATE_POSITION,
@@ -112,49 +130,6 @@ class Drone(pykka.ThreadingActor):
                 "dead": self.dead,
             }
         )
-        # Leader always sends MOVE_COMMAND to all (center)
-        if self.is_leader():
-            center = self.field_center
-            self.move_target = center
-            self.env.tell(
-                {
-                    "type": MessageType.SEND_LOCAL,
-                    "sender": self.actor_ref,
-                    "payload": {"type": MessageType.MOVE_COMMAND, "target": center},
-                }
-            )
-
-            # Initiate SWARM_SIZE_REQUEST only when at target and previous is done
-            x, y = self.position
-            tx, ty = center
-            dist = ((x - tx) ** 2 + (y - ty) ** 2) ** 0.5
-            if dist < 0.1 and self.active_swarm_req_id is None:
-                print(f"Leader {self.id} initiating SWARM_SIZE_REQUEST at target")
-                req_id = f"{self.id}_{self.current_tick}"
-                self.active_swarm_req_id = req_id
-                self.active_swarm_set = set([self.id])
-
-        # Reset active request after timeout
-        if self.active_swarm_req_id is not None:
-            req_tick = int(self.active_swarm_req_id.split("_")[1])
-            if self.current_tick - req_tick >= 80:
-                self.active_swarm_req_id = None
-                self.active_swarm_set = set()
-                self.swarm_size_responses = set()
-                self.swarm_size_requests = set()
-
-        # 3. Check leader timeout
-        self.check_leader_timeout()
-
-        # 4. Leader sends heartbeat
-        if self.is_leader() and self.current_tick % self.heartbeat_interval == 0:
-            self.leader_tick = self.current_tick
-            self.send_leader_message()
-
-    def leader_election_stable(self):
-        # Returns True if leader_id and leader_version have not changed for N ticks.
-
-        return self._leader_stable_ticks >= self._leader_stable_required
 
     # --- Message handling logic ---
     def handle_message(self, msg):
@@ -162,84 +137,20 @@ class Drone(pykka.ThreadingActor):
         if msg_type == MessageType.LEADER:
             self.handle_leader_message(msg)
 
-        elif msg_type == MessageType.SWARM_SIZE_REQUEST:
-            req_id = msg.get("req_id")
-            if self.is_leader():
-                return
-            if req_id not in self.swarm_size_requests:
-                self.swarm_size_requests.add(req_id)
-                response = {
-                    "type": MessageType.SWARM_SIZE_RESPONSE,
-                    "drone_id": self.id,
-                    "req_id": req_id,
-                }
-                self.env.tell(
-                    {
-                        "type": MessageType.SEND_LOCAL,
-                        "sender": self.actor_ref,
-                        "payload": response,
-                    }
-                )
-                self.env.tell(
-                    {
-                        "type": MessageType.SEND_LOCAL,
-                        "sender": self.actor_ref,
-                        "payload": msg,
-                    }
-                )
-
-        elif msg_type == MessageType.SWARM_SIZE_RESPONSE:
-            req_id = msg.get("req_id")
-            drone_id = msg.get("drone_id")
-            key = (req_id, drone_id)
-            if key in self.swarm_size_responses:
-                return
-            self.swarm_size_responses.add(key)
-            if self.is_leader():
-                if self.active_swarm_req_id != req_id:
-                    return
-                self.active_swarm_set.add(drone_id)
-                print(
-                    f"[LEADER {self.id}] Swarm size for req_id={req_id}: {len(self.active_swarm_set)}"
-                )
-            else:
-                self.env.tell(
-                    {
-                        "type": MessageType.SEND_LOCAL,
-                        "sender": self.actor_ref,
-                        "payload": msg,
-                    }
-                )
-
-        elif msg_type == MessageType.MOVE_COMMAND: # is the target payload used?
+        elif msg_type == MessageType.MOVE_COMMAND:  # is the target payload used?
             # Only accept move command if not leader and election is finished
             if not self.is_leader() and self.leader_id is not None:
                 self.move_target = msg.get("target", (0, 0))
         elif msg_type == MessageType.DEAD:
             self.dead = True
             # Immediately send update to environment about death
-            self.env.tell(
-                {
-                    "type": MessageType.UPDATE_POSITION,
-                    "drone": self.actor_ref,
-                    "position": self.position,
-                    "is_leader": self.is_leader(),
-                    "leader_id": self.leader_id,
-                    "leader_version": self.leader_version,
-                    "leader_tick": self.leader_tick,
-                    "timeout": self.timeout,
-                    "leader_stable_ticks": self._leader_stable_ticks,
-                    "leader_stable_required": self._leader_stable_required,
-                    "dead": True,
-                }
-            )
+            self.update_position()
 
     # --- Movement logic (placeholder) ---
     def move(self):
         if not hasattr(self, "move_target") or self.move_target is None:
             return
         center_x, center_y = self.field_center
-        import math
 
         angle = random.uniform(0, 2 * math.pi)
         r = random.uniform(0, self.TARGET_RADIUS)

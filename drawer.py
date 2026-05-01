@@ -195,7 +195,8 @@ class Drawer:
         election_time = metrics.get("leader_election_time_ticks")
         election_time_str = "-" if election_time is None else str(election_time)
         screen.blit(
-            font_small.render(f"leader messages: {messages_cnt}", True, self.BLACK), (x, y)
+            font_small.render(f"leader messages: {messages_cnt}", True, self.BLACK),
+            (x, y),
         )
         y += line_h
         screen.blit(
@@ -229,7 +230,11 @@ class Drawer:
             rows.append(
                 {
                     "id": str(drone_id),
-                    "leader": "-" if leader_id is None else "Dead" if is_dead else str(int(leader_id)),
+                    "leader": "-"
+                    if leader_id is None
+                    else "Dead"
+                    if is_dead
+                    else str(int(leader_id)),
                     "since": "-" if is_dead else str(since_hb),
                     "left": "-" if is_dead else str(timeout_left),
                     "stable": stable_value,

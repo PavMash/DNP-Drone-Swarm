@@ -144,7 +144,9 @@ class GlobalSyncedContainer:
             return {
                 "current_tick": self.current_tick,
                 "leader_messages_cnt": self.leader_messages_cnt,
-                "leader_election_time_ticks": self.last_tick if self.last_tick else None,
+                "leader_election_time_ticks": self.last_tick
+                if self.last_tick
+                else None,
             }
 
     def check_end(self, field_center: tuple[float, float], target_radius: float):
