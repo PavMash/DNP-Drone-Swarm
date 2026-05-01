@@ -26,6 +26,7 @@ class Drone(pykka.ThreadingActor):
 
         # Position
         self.position = position
+        self.move_target = None
 
         # Field center
         self.field_center = field_center
@@ -73,7 +74,7 @@ class Drone(pykka.ThreadingActor):
         # 1. Move
         # Only move if leader election is stable for N ticks
         if self.leader_election_stable():
-            if hasattr(self, "move_target") and self.move_target is not None:
+            if self.move_target is not None:
                 self.move()
         # Track leader stability
         if (
@@ -137,7 +138,7 @@ class Drone(pykka.ThreadingActor):
         if msg_type == MessageType.LEADER:
             self.handle_leader_message(msg)
 
-        elif msg_type == MessageType.MOVE_COMMAND:  # is the target payload used?
+        elif msg_type == MessageType.MOVE_COMMAND:
             # Only accept move command if not leader and election is finished
             if not self.is_leader() and self.leader_id is not None:
                 self.move_target = msg.get("target", (0, 0))
@@ -148,23 +149,23 @@ class Drone(pykka.ThreadingActor):
 
     # --- Movement logic (placeholder) ---
     def move(self):
-        if not hasattr(self, "move_target") or self.move_target is None:
-            return
-        center_x, center_y = self.field_center
+        assert self.move_target
+        center_x, center_y = self.move_target
 
         angle = random.uniform(0, 2 * math.pi)
         r = random.uniform(0, self.TARGET_RADIUS)
+
         tx = center_x + r * math.cos(angle)
         ty = center_y + r * math.sin(angle)
-        # self.move_target = (tx, ty)
         x, y = self.position
-        # tx, ty = self.move_target
         dx = tx - x
         dy = ty - y
         dist = (dx**2 + dy**2) ** 0.5
+
         if dist < 0.1:
             # Already at target
             return
+
         # Move step (max step size = 1.0 per tick)
         step = min(1.0, dist)
         nx = x + dx / dist * step
