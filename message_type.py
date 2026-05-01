@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class MessageType(Enum):
     # --- Simulation control ---
     START = auto()
@@ -11,13 +12,10 @@ class MessageType(Enum):
     UPDATE_POSITION = auto()
     SEND_LOCAL = auto()
     DELIVER = auto()
+    DEAD = auto()
 
     # --- Swarm / Gossip layer ---
     LEADER = auto()
-
-    # --- Swarm size counting ---
-    SWARM_SIZE_REQUEST = auto()
-    SWARM_SIZE_RESPONSE = auto()
 
     # --- Movement commands ---
     MOVE_COMMAND = auto()
@@ -31,8 +29,8 @@ class MessageType(Enum):
 # STOP: Stop the simulation (sent to environment from main.py)
 # Structure: {"type": MessageType.STOP}
 
-# TICK: Start new tick in simultaion inside environment and notify drones of a new tick
-# (sent to environment from environtment itself and from environment to drones)
+# TICK: Start new tick in simulation inside environment and notify drones of a new tick
+# (sent to environment from environment itself and from environment to drones)
 # Structure: {"type": MessageType.TICK} - when sent to environment
 #            {"type": MessageType.TICK, "tick": current_tick} - when sent to drones
 
